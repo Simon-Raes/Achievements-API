@@ -1,18 +1,11 @@
 var request = require('request');
-// var monk = require('monk');
-// var db = monk('localhost:27017/achievementsapi')
-// var gamesCollection = db.get('games');
-// var detailedGamesCollection = db.get('detailedGames');
-
 
 var Game = require("../models/game").Game;
 var DetailedGame = require("../models/detailedgame").DetailedGame;
 
-
 /*
 * Downloads and stores the stats for a single game. Pass in the game's appid to specificy which one.
 */
-
 
 var gameSchemeJson;
 var gameGlobalStatsJson;
@@ -21,12 +14,13 @@ var schemeReady = false, globalStatsReady = false;
 var hasStats = false;
 var numberOfAchievements = 0;
 
+var appId;
+
 var response;
 
 /*
 * Downloads the game's scheme: detailed info on achievements and stats.
 */
-
 
 exports.downloadGameDetails = function(req, res, inAppId) {
 
@@ -67,10 +61,8 @@ exports.downloadGameDetails = function(req, res, inAppId) {
 
 function combineData()
 {
-  console.log("check");
   if(schemeReady && globalStatsReady)
   {
-    console.log("going");
     if(numberOfAchievements > 0 || hasStats)
     {
       gameSchemeJson.game.availableGameStats.achievements.forEach(function(item){
@@ -83,7 +75,7 @@ function combineData()
       saveData();
     }
     else {
-      console.log('Game has no achievements or stats');
+      // Game has no achievements or stats
       updateGame();
     }
   }
@@ -95,17 +87,9 @@ function combineData()
 function saveData() {
   if(numberOfAchievements > 0 || hasStats) {
 
-    console.log("starting hard part");
-
-    Game.count({}, function(e, c){
-      console.log(c);
-    });
-
-
     Game.findOne({appid:Number(appId)}, function (err, docs){
 
       if(err){console.log(err);}
-        console.log('found one');
 
         // Set the game name, since this field is often empty in the Steam scheme API.
         gameSchemeJson.game.gameName = docs.name;
@@ -114,14 +98,10 @@ function saveData() {
 
         DetailedGame.find({appid:Number(appId)}).remove( function(){
 
-            console.log("removed it or it didn't exist");
-
             var detgame = new DetailedGame(gameSchemeJson.game);
-
 
             detgame.save(function(err){
               if(err){console.log(err);}
-              console.log("goign to update game!!!");
               updateGame();
             });
         });
@@ -150,7 +130,7 @@ function updateGame()
     function(e, docs)
     {
       console.log('All done.');
-      response.send("Done.");      
+      response.send("Done.");
     }
   );
 }
