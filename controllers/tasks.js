@@ -1,28 +1,22 @@
 var express = require('express');
 var router = express.Router();
-var gamesListTask = require("../scripts/gamesListTask.js");
-var gameDetailsTask = require("../scripts/gameDetailsTask.js");
+
+var gamesTask = require("../scripts/gamesListTask.js");
+var usersTask = require("../scripts/userDetailsTask.js");
 
 /*
 * Downloads and stores a list of all steam games.
 */
-router.get('/gameslist', function(req, res, next) {
+router.get('/games', function(req, res, next) {
 
-  // TODO print out result here instead of in the task script.
-  gamesListTask.downloadGamesList(req, res);
+  gamesTask.downloadGamesList(req, res);
   res.send("done");
 
 });
 
+router.get('/user/:steamid', function(req, res, next) {
 
-/*
-* Downloads and stores the detailed info of a single game.
-*/
-router.get('/gamedetails/:id', function(req, res, next) {
-
-  var inAppId = Number(req.params.id);
-
-  gameDetailsTask.downloadGameDetails(req, res, inAppId);
+  usersTask.downloadUserDetails(req, res, req.params.steamid);
   res.send("done");
 
 });

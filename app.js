@@ -22,6 +22,7 @@ else
 
 var routes = require('./controllers/index');
 var games = require('./controllers/games');
+var users = require('./controllers/users');
 var tasks = require('./controllers/tasks');
 
 
@@ -46,6 +47,7 @@ app.listen(process.env.PORT || 5000);
 
 app.use('/', routes);
 app.use('/games', games);
+app.use('/users', users);
 app.use('/tasks', tasks);
 
 

@@ -1,9 +1,12 @@
 var mongoose = require("mongoose");
 
 var DetailedGameSchema = new mongoose.Schema({
-
-  gameName: String,
-  gameVersion: Number,
+  appid: {
+    type: Number,
+    index: true
+  },
+  name: String,
+  version: Number,
   availableGameStats: {
       stats: [{
         name: String,
@@ -20,13 +23,7 @@ var DetailedGameSchema = new mongoose.Schema({
         icongray: String,
         percent: Number
       }]
-  },
-  appid: {
-    type: Number,
-    index: true
   }
-
-
 });
 
 var DetailedGame = mongoose.model("DetailedGame", DetailedGameSchema);
