@@ -7,7 +7,17 @@ var bodyParser = require('body-parser');
 
 var mongo = require('mongodb');
 var mongoose = require('mongoose');
-mongoose.connect(process.env.DB_URL);
+
+if(process.env.DB_URL != undefined)
+{
+    mongoose.connect(process.env.DB_URL);
+}
+else
+{
+    // Fallback when running project locally
+    mongoose.connect('mongodb://localhost/achievementsapi');
+}
+
 
 
 var routes = require('./controllers/index');
@@ -20,7 +30,6 @@ var tasks = require('./controllers/tasks');
 
 
 console.log('lets go');
-console.log("url " + process.env.DB_URL);
 
 
 var db = mongoose.connection;
