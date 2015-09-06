@@ -9,7 +9,11 @@ var userGameTask = require("../scripts/userGameTask.js");
 exports.downloadUserDetails = function(req, res, inSteamId)
 {
   // TODO: use inSteamId once testing is done, using an account with a low amount of games and achievements for testing here
-  var userId = "76561198075926354";
+  // var userId = "76561198075926354";
+
+  // Kippie: REMOVE AGAIN BEFORE COMMITING
+  var userId = "76561197960378945";
+
 
   // Download user info
   request('http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=EB5773FAAF039592D9383FA104EEA55D&steamids=' + userId, function (error, response, body)

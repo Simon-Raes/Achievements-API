@@ -22,8 +22,7 @@ var DetailedGame = require("../models/detailedgame").DetailedGame;
 
 // store the gameforuser info in the detaileduser collection
 
-var dbGame;
-var userGameStats;
+
 
 var req;
 var res;
@@ -43,76 +42,65 @@ function UserLoader(req, res, inUser, inAppId)
 
 UserLoader.prototype.load = function()
 {
+  var dbGame;
+  var userGameStats;
+
+  var localAppId = this.inAppId;
+  var localUser = this.user;
+
+
   // Load the Game from the database
-  Game.findOne({appid:Number(this.inAppId)}, function (err, docs){
+  Game.findOne({appid:Number(localAppId)}, function (err, docs)
+  {
     if(err){console.log(err);}
 
-    this.dbGame = docs;
-    console.log(this.dbGame);
-    updateUserGame();
+    dbGame = docs;
 
-  });
-
-  // Load the user's stats for this game from the API
-  request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + this.inAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + this.user.steamid, function (error, response, body)
-  {
-    var jsonParsed = JSON.parse(body);
-
-    if(jsonParsed.playerstats != undefined)
+    // Load the user's stats for this game from the API
+    request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
     {
-      this.userGameStats = jsonParsed.playerstats;
-      updateUserGame();
-    }
-    else
-    {
-      // user has no stats or achievements (game might not have any)
-    }
+      var jsonParsed = JSON.parse(body);
+
+      if(jsonParsed.playerstats != undefined)
+      {
+        userGameStats = jsonParsed.playerstats;
+
+        if(dbGame != undefined && userGameStats != undefined)
+        {
+          // WARNING this will never work if the game is not yet in the database
+          if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)
+          {
+            // TODO steamId is not correct after saving as number, make it a String!
+            var userGame = new UserGame({
+              steamid: localUser.steamid,
+              appid: dbGame.appid,
+              name: dbGame.name,
+              stats: userGameStats.stats,
+              achievements: userGameStats.achievements
+            });
+
+            UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
+              if(error){console.log(error);}
+
+              userGame.save(function (err, userGame) {
+                if(err){console.log(err);}
+
+                // TODO: we're done, alert something
+                console.log("did save");
+              });
+            });
+          }
+        }
+      }
+    });
   });
 }
 
 
 function updateUserGame()
 {
-  // WHY ARE THESE UNDEFINED AGAIN AFTER SETTING THEM?
-  console.log("dbgame "+ this.dbGame);
-  console.log("usergamestats "+ this.userGameStats);
 
-  if(this.dbGame != undefined && this.userGameStats != undefined)
-  {
-    console.log("going");
-    // WARNING this will never work if the game is not yet in the database
-    if(this.dbGame.numberOfAchievements > 0 || this.dbGame.hasStats)
-    {
-      var userGame = new UserGame({
-        steamid: this.user.steamid,
-        appid: this.dbGame.appid,
-        name: this.dbGame.name,
-        stats: this.userGameStats.stats,
-        achievements: this.userGameStats.achievements
-      });
-
-      UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
-        if(error){console.log(error);}
-
-        userGame.save(function (err, userGame) {
-          if(err){console.log(err);}
-
-          // TODO: we're done, alert something
-          console.log("did save");
-        });
-      });
-    }
-    else
-    {
-      console.log("invalid game");
-    }
-  }
-  else
-  {
-    console.log("not yet");
-  }
 }
-
 
 
 // Use this somewhere else
