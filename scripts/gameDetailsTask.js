@@ -91,21 +91,21 @@ function saveData() {
 
       if(err){console.log(err);}
 
-        // Set the game name, since this field is often empty in the Steam scheme API.
-        gameSchemeJson.game.gameName = docs.name;
-        // Add the appId, could be useful.
-        gameSchemeJson.game.appid = Number(appId);
+      // Set the game name, since this field is often empty in the Steam scheme API.
+      gameSchemeJson.game.gameName = docs.name;
+      // Add the appId, could be useful.
+      gameSchemeJson.game.appid = Number(appId);
 
-        DetailedGame.find({appid:Number(appId)}).remove( function(){
+      DetailedGame.find({appid:Number(appId)}).remove( function(){
 
-            var detgame = new DetailedGame(gameSchemeJson.game);
+        var detgame = new DetailedGame(gameSchemeJson.game);
 
-            detgame.save(function(err){
-              if(err){console.log(err);}
-              updateGame();
-            });
+        detgame.save(function(err){
+          if(err){console.log(err);}
+          updateGame();
         });
       });
+    });
   }
   else {
     updateGame();

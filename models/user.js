@@ -2,7 +2,7 @@ var mongoose = require("mongoose");
 
 var UserSchema = new mongoose.Schema({
   steamid: {
-    type: Number,
+    type: String,
     index: true
   },
   name: String,
