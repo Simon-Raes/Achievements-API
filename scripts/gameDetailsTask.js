@@ -42,8 +42,6 @@ exports.downloadGameDetails = function(req, res, inAppId, inCallback) {
         {
           numberOfAchievements = gameSchemeJson.game.availableGameStats.achievements.length;
           hasStats = ((gameSchemeJson.game.availableGameStats.stats != undefined) && (gameSchemeJson.game.availableGameStats.stats.length > 0));
-
-          console.log("found " + numberOfAchievements + " achievemts");
         }
 
         combineData();
@@ -59,8 +57,6 @@ exports.downloadGameDetails = function(req, res, inAppId, inCallback) {
         gameGlobalStatsJson = JSON.parse(body);
         globalStatsReady = true;
 
-        console.log("found global stats");
-
         combineData();
      }
   });
@@ -73,8 +69,6 @@ function combineData()
   {
     if(numberOfAchievements > 0 || hasStats)
     {
-      console.log("need to combine");
-
       gameSchemeJson.game.availableGameStats.achievements.forEach(function(item){
         // FIXME can this not just return an item instead of an array with 1 item?
 
@@ -100,14 +94,12 @@ function combineData()
 function saveData() {
   if(numberOfAchievements > 0 || hasStats) {
 
-    console.log("need to save");
-
     Game.findOne({appid:Number(appId)}, function (err, docs){
 
       if(err){console.log(err);}
 
       // Set the game name, since this field is often empty in the Steam scheme API.
-      gameSchemeJson.game.gameName = docs.name;
+      gameSchemeJson.game.name = docs.name;
       // Add the appId, could be useful.
       gameSchemeJson.game.appid = Number(appId);
 
@@ -136,8 +128,6 @@ function saveData() {
 */
 function updateGame()
 {
-  console.log("Updating basic game");
-
   Game.update(
     {appid:Number(appId)},
     {$set:
