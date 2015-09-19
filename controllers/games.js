@@ -20,15 +20,27 @@ router.get('/:appid', function(req, res, next) {
 
   DetailedGame.findOne({"appid":number}, function(error, result) {
     if(result == undefined) {
-      // Game isn' known yet, download it first
-      gameDetailsTask.downloadGameDetails(req, res, number);
+      // Game isn't known yet, download it first
+      gameDetailsTask.downloadGameDetails(req, res, number, function callback(result)
+      {
+        console.log("in callback");
+        if(result != undefined)
+        {
+          res.json(result);
+        }
+        else
+        {
+          res.send("Game has no achievements or stats. ");
+        }
+      });
       // TODO add a callback or something so the response can be sent once the game has been retrieved
-      res.send("Try again in a minute.");
+      //res.send("Try again in a minute.");
     }
     else {
       res.json(result);
     }
   });
 });
+
 
 module.exports = router;

@@ -18,14 +18,18 @@ var appId;
 
 var response;
 
+var callback;
+
 /*
 * Downloads the game's scheme: detailed info on achievements and stats.
 */
 
-exports.downloadGameDetails = function(req, res, inAppId) {
+exports.downloadGameDetails = function(req, res, inAppId, inCallback) {
 
   response = res;
   appId = inAppId;
+
+  callback = inCallback;
 
   request('http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=EB5773FAAF039592D9383FA104EEA55D&appid=' + appId, function (error, response, body) {
       if (!error && response.statusCode == 200) {
@@ -38,6 +42,8 @@ exports.downloadGameDetails = function(req, res, inAppId) {
         {
           numberOfAchievements = gameSchemeJson.game.availableGameStats.achievements.length;
           hasStats = ((gameSchemeJson.game.availableGameStats.stats != undefined) && (gameSchemeJson.game.availableGameStats.stats.length > 0));
+
+          console.log("found " + numberOfAchievements + " achievemts");
         }
 
         combineData();
@@ -53,6 +59,8 @@ exports.downloadGameDetails = function(req, res, inAppId) {
         gameGlobalStatsJson = JSON.parse(body);
         globalStatsReady = true;
 
+        console.log("found global stats");
+
         combineData();
      }
   });
@@ -65,9 +73,14 @@ function combineData()
   {
     if(numberOfAchievements > 0 || hasStats)
     {
+      console.log("need to combine");
+
       gameSchemeJson.game.availableGameStats.achievements.forEach(function(item){
         // FIXME can this not just return an item instead of an array with 1 item?
-        var globalPercentage = getGlobalPercentage(item.name)[0].percent;
+
+        console.log(item.name);
+
+        var globalPercentage = getGlobalPercentage(item.name.toLowerCase())[0].percent;
 
         item.percent = globalPercentage;
       });
@@ -76,7 +89,7 @@ function combineData()
     }
     else {
       // Game has no achievements or stats
-      updateGame();
+      invalidGame();
     }
   }
 }
@@ -86,6 +99,8 @@ function combineData()
 */
 function saveData() {
   if(numberOfAchievements > 0 || hasStats) {
+
+    console.log("need to save");
 
     Game.findOne({appid:Number(appId)}, function (err, docs){
 
@@ -100,6 +115,8 @@ function saveData() {
 
         var detgame = new DetailedGame(gameSchemeJson.game);
 
+        callback(detgame);
+
         detgame.save(function(err){
           if(err){console.log(err);}
           updateGame();
@@ -107,8 +124,10 @@ function saveData() {
       });
     });
   }
-  else {
-    updateGame();
+  else
+  {
+    // Game has no achievements or stats
+    invalidGame();
   }
 }
 
@@ -118,10 +137,9 @@ function saveData() {
 function updateGame()
 {
   console.log("Updating basic game");
-  var conditions = {appid:Number(appId)};
 
   Game.update(
-    conditions,
+    {appid:Number(appId)},
     {$set:
       {"hasStats":hasStats,
       "numberOfAchievements":Number(numberOfAchievements)}
@@ -130,15 +148,20 @@ function updateGame()
     function(e, docs)
     {
       console.log('All done.');
-      response.send("Done.");
     }
   );
+}
+
+function invalidGame()
+{
+  console.log("invalid game detected");
+  callback(null);
 }
 
 function getGlobalPercentage(searchName) {
   return gameGlobalStatsJson.achievementpercentages.achievements.filter(
     function(gameGlobalStatsJson) {
-      return gameGlobalStatsJson.name == searchName;
+      return gameGlobalStatsJson.name.toLowerCase() == searchName;
     }
   );
 }

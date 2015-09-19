@@ -4,6 +4,8 @@ var router = express.Router();
 var gamesTask = require("../scripts/gamesListTask.js");
 var usersTask = require("../scripts/userDetailsTask.js");
 
+// TODO a less dumb system for running scripts
+
 /*
 * Downloads and stores a list of all steam games.
 */
