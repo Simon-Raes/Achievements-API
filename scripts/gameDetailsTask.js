@@ -20,16 +20,16 @@ var response;
 
 var callback;
 
-/*
-* Downloads the game's scheme: detailed info on achievements and stats.
-*/
 
-exports.downloadGameDetails = function(req, res, inAppId, inCallback) {
+exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
 
-  response = res;
+  response = inRes;
   appId = inAppId;
-
   callback = inCallback;
+
+  /*
+  * Downloads the game's scheme: detailed info on achievements and stats.
+  */
 
   request('http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=EB5773FAAF039592D9383FA104EEA55D&appid=' + appId, function (error, response, body) {
       if (!error && response.statusCode == 200) {
@@ -79,7 +79,7 @@ function combineData()
         item.percent = globalPercentage;
       });
 
-      saveData();
+      saveDetailedGame();
     }
     else {
       // Game has no achievements or stats
@@ -91,7 +91,7 @@ function combineData()
 /*
 * Saves the game details to the detailedGames collection.
 */
-function saveData() {
+function saveDetailedGame() {
   if(numberOfAchievements > 0 || hasStats) {
 
     Game.findOne({appid:Number(appId)}, function (err, docs){

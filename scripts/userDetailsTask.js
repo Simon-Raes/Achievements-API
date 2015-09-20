@@ -3,15 +3,19 @@ var router = express.Router();
 var request = require('request');
 
 var User = require("../models/user").User;
-var userGameTask = require("../scripts/userGameTask.js");
+var Game = require("../models/game").Game;
 
+var UserGameTask = require("../scripts/userGameTask.js");
+
+var tasksStarted = 0;
+var tasksCompleted = 0;
 
 exports.downloadUserDetails = function(req, res, inSteamId)
 {
   // TODO: use inSteamId once testing is done, using an account with a low amount of games and achievements for testing here
   // var userId = "76561198075926354";
 
-  // Kippie: REMOVE AGAIN BEFORE COMMITING
+  // hardcoded kip id
   var userId = "76561197960378945";
 
 
@@ -38,12 +42,37 @@ exports.downloadUserDetails = function(req, res, inSteamId)
         {
           var games = JSON.parse(body).response.games;
 
+          console.log("found " + games.length + " games for this user.");
+
           // Get the stats for every game
           games.forEach(function(entry)
           {
             // Do this for every game for this user
-            var UserGameTask = new userGameTask(res, req, user, entry.appid);
-            UserGameTask.load();
+            Game.findOne({appid:Number(entry.appid)}, function (err, docs)
+            {
+              if(!err && (docs.hasStats || docs.numberOfAchievements > 0))
+              {
+                console.log("valid game: " + docs.name);
+
+                tasksStarted++;
+
+                var userGameTask = new UserGameTask(res, req, user, entry.appid);
+
+                userGameTask.load(function(result)
+                {
+                  tasksCompleted++;
+                  console.log("started " + tasksStarted + ", completed " + tasksCompleted);
+
+                  if(tasksStarted == tasksCompleted)
+                  {
+                    res.send("all done");
+                  }
+
+                });
+
+                console.log(tasksStarted + " tasks running");
+              }
+            });
 
             // TODO some kind of callback and counter to determine when all calls are finished and when everything has been saved in the database
 

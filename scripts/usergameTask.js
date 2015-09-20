@@ -40,7 +40,7 @@ function UserLoader(req, res, inUser, inAppId)
   this.inAppId = inAppId;
 }
 
-UserLoader.prototype.load = function()
+UserLoader.prototype.load = function(inCallback)
 {
   var dbGame;
   var userGameStats;
@@ -59,6 +59,7 @@ UserLoader.prototype.load = function()
     // Load the user's stats for this game from the API
     request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
     {
+      console.log("found stats for id " + localAppId);
       var jsonParsed = JSON.parse(body);
 
       if(jsonParsed.playerstats != undefined)
@@ -79,14 +80,20 @@ UserLoader.prototype.load = function()
               achievements: userGameStats.achievements
             });
 
+            console.log("about to remove usergame info");
+
             UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
               if(error){console.log(error);}
+
+              console.log("about to save usergame info");
 
               userGame.save(function (err, userGame) {
                 if(err){console.log(err);}
 
+                inCallback("ok! " + localAppId);
+
                 // TODO: we're done, alert something
-                console.log("did save");
+                console.log("did save usergame info");
               });
             });
           }
