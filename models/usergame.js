@@ -4,7 +4,7 @@ var mongoose = require("mongoose");
 
 var UserGameSchema = new mongoose.Schema({
   steamid:{
-    type: Number,
+    type: String,
     index: true
   },
   appid: {

@@ -5,10 +5,7 @@ var request = require('request');
 var User = require("../models/user").User;
 var Game = require("../models/game").Game;
 
-var UserGameTask = require("../scripts/userGameTask.js");
-
-var tasksStarted = 0;
-var tasksCompleted = 0;
+var userGameTask = require("../scripts/userGameTask.js");
 
 exports.downloadUserDetails = function(req, res, inSteamId)
 {
@@ -48,29 +45,20 @@ exports.downloadUserDetails = function(req, res, inSteamId)
           games.forEach(function(entry)
           {
             // Do this for every game for this user
+
+            // TODO first check if this game even has achievements or stats - only start the next part if it does
             Game.findOne({appid:Number(entry.appid)}, function (err, docs)
             {
-              if(!err && (docs.hasStats || docs.numberOfAchievements > 0))
+              if(err || (!docs.hasStats && docs.numberOfAchievements <= 0))
+              {
+                console.log("invalid game " + err);
+              }
+              else
               {
                 console.log("valid game: " + docs.name);
 
-                tasksStarted++;
-
-                var userGameTask = new UserGameTask(res, req, user, entry.appid);
-
-                userGameTask.load(function(result)
-                {
-                  tasksCompleted++;
-                  console.log("started " + tasksStarted + ", completed " + tasksCompleted);
-
-                  if(tasksStarted == tasksCompleted)
-                  {
-                    res.send("all done");
-                  }
-
-                });
-
-                console.log(tasksStarted + " tasks running");
+                var UserGameTask = new userGameTask(res, req, user, entry.appid);
+                UserGameTask.load();
               }
             });
 

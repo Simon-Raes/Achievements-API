@@ -16,10 +16,11 @@ router.get('/games', function(req, res, next) {
 
 });
 
+/**Downloads info for a single user*/
 router.get('/user/:steamid', function(req, res, next) {
 
   usersTask.downloadUserDetails(req, res, req.params.steamid);
-  //res.send("done");
+  res.send("done");
 
 });
 

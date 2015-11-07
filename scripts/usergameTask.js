@@ -40,7 +40,7 @@ function UserLoader(req, res, inUser, inAppId)
   this.inAppId = inAppId;
 }
 
-UserLoader.prototype.load = function(inCallback)
+UserLoader.prototype.load = function()
 {
   var dbGame;
   var userGameStats;
@@ -80,22 +80,20 @@ UserLoader.prototype.load = function(inCallback)
               achievements: userGameStats.achievements
             });
 
-            console.log("about to remove usergame info");
-
             UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
               if(error){console.log(error);}
-
-              console.log("about to save usergame info");
 
               userGame.save(function (err, userGame) {
                 if(err){console.log(err);}
 
-                inCallback("ok! " + localAppId);
-
                 // TODO: we're done, alert something
+                // TODO: call back with userachievementscount = totalachievementscount
                 console.log("did save usergame info");
               });
             });
+          }
+          else {
+            // todo callback with 0 0
           }
         }
       }
