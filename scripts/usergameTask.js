@@ -1,6 +1,8 @@
 var express = require('express');
 var router = express.Router();
 var request = require('request');
+var RateLimiter = require('limiter').RateLimiter;
+// var limiter = new RateLimiter(1, 'second');
 
 //TODO clean up unused imports
 var User = require("../models/user").User;
@@ -40,7 +42,7 @@ function UserLoader(req, res, inUser, inAppId)
   this.inAppId = inAppId;
 }
 
-UserLoader.prototype.load = function()
+UserLoader.prototype.load = function(callback)
 {
   var dbGame;
   var userGameStats;
@@ -56,48 +58,74 @@ UserLoader.prototype.load = function()
 
     dbGame = docs;
 
+    // console.log("trying game " + localAppId);
+
     // Load the user's stats for this game from the API
-    request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
-    {
-      console.log("found stats for id " + localAppId);
-      var jsonParsed = JSON.parse(body);
 
-      if(jsonParsed.playerstats != undefined)
+
+    //limiter.removeTokens(.5, function() {
+      request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
       {
-        userGameStats = jsonParsed.playerstats;
-
-        if(dbGame != undefined && userGameStats != undefined)
+        //console.log(response);
+        if(error)
         {
-          // WARNING this will never work if the game is not yet in the database
-          if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)
+          console.log(error);
+          callback(0,0);
+          return;
+        }
+
+        //console.log("found stats for id " + localAppId);
+
+        var jsonParsed = JSON.parse(body);
+
+        if(jsonParsed.playerstats != undefined)
+        {
+          userGameStats = jsonParsed.playerstats;
+
+          if(dbGame != undefined && userGameStats != undefined)
           {
-            // TODO steamId is not correct after saving as number, make it a String!
-            var userGame = new UserGame({
-              steamid: localUser.steamid,
-              appid: dbGame.appid,
-              name: dbGame.name,
-              stats: userGameStats.stats,
-              achievements: userGameStats.achievements
-            });
-
-            UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
-              if(error){console.log(error);}
-
-              userGame.save(function (err, userGame) {
-                if(err){console.log(err);}
-
-                // TODO: we're done, alert something
-                // TODO: call back with userachievementscount = totalachievementscount
-                console.log("did save usergame info");
+            // WARNING this will never work if the game is not yet in the database
+            if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)
+            {
+              // TODO steamId is not correct after saving as number, make it a String!
+              var userGame = new UserGame({
+                steamid: localUser.steamid,
+                appid: dbGame.appid,
+                name: dbGame.name,
+                stats: userGameStats.stats,
+                achievements: userGameStats.achievements
               });
-            });
+
+              UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
+                if(error){console.log(error);}
+
+                userGame.save(function (err, userGame) {
+                  if(err){console.log(err);}
+
+                  // TODO: we're done, alert something
+                  // TODO: call back with userachievementscount = totalachievementscount
+                  callback(localAppId, userGameStats.achievements.length, dbGame.numberOfAchievements);
+                });
+              });
+            }
+            else
+            {
+              // todo callback with 0 0
+              callback(localAppId, 0, 0);
+            }
           }
-          else {
-            // todo callback with 0 0
+          else
+          {
+            console.log("natuurlijk");
+            callback(localAppId, 0, 0);
           }
         }
-      }
-    });
+        else
+        {
+          callback(localAppId, 0, 0);
+        }
+      });
+    //});
   });
 }
 

@@ -12,14 +12,15 @@ var usersTask = require("../scripts/userDetailsTask.js");
 router.get('/games', function(req, res, next) {
 
   gamesTask.downloadGamesList(req, res);
+  // TODO send some better data here ("task queued" or something), the task is not yet done when this is returned!
   res.send("done");
-
 });
 
 /**Downloads info for a single user*/
 router.get('/user/:steamid', function(req, res, next) {
 
   usersTask.downloadUserDetails(req, res, req.params.steamid);
+  // TODO send some better data here ("task queued" or something), the task is not yet done when this is returned!
   res.send("done");
 
 });

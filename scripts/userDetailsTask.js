@@ -32,38 +32,61 @@ exports.downloadUserDetails = function(req, res, inSteamId)
         perfectGames: 0
       });
 
-      // Download list of games
+      // Download list of the games owned by this user
       request('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + userId, function (error, response, body)
       {
         if (!error && response.statusCode == 200)
         {
           var games = JSON.parse(body).response.games;
 
-          console.log("found " + games.length + " games for this user.");
+          // Values to set for the User after all games have been checked.
+          var achievementCount = 0;
+          var perfectedGames = 0;
+          // Counter to know when all games have been checked.
+          var numberOfGames = games.length;
+          var counter = 0;
 
           // Get the stats for every game
           games.forEach(function(entry)
           {
-            // Do this for every game for this user
-
-            // TODO first check if this game even has achievements or stats - only start the next part if it does
             Game.findOne({appid:Number(entry.appid)}, function (err, docs)
             {
               if(err || (!docs.hasStats && docs.numberOfAchievements <= 0))
               {
-                console.log("invalid game " + err);
+                // TODO fix this, this is somehow never true, but there should definitely be some games in the DB that do not have achievements.
+                //counter++;
               }
               else
               {
-                console.log("valid game: " + docs.name);
-
                 var UserGameTask = new userGameTask(res, req, user, entry.appid);
-                UserGameTask.load();
+
+                UserGameTask.load(function callback(appId, achieved, total)
+                {
+                  achievementCount += achieved;
+
+                  if(total != 0 && achieved >= total)
+                  {
+                    perfectedGames ++;
+                  }
+
+                  counter ++;
+                  if(counter == numberOfGames)
+                  {
+                    user.numberOfAchievements = achievementCount;
+                    user.perfectGames = perfectedGames;
+
+                    // Delete the user's old data and save the new one.
+                    User.find({steamid:userId}).remove( function(){
+
+                      user.save(function(err){
+                        if(err){console.log(err);}
+                        console.log("saved user!");
+                      });
+                    });
+                  }
+                });
               }
             });
-
-            // TODO some kind of callback and counter to determine when all calls are finished and when everything has been saved in the database
-
           });
         }
       });
