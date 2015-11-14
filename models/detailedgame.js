@@ -2,7 +2,7 @@ var mongoose = require("mongoose");
 
 var DetailedGameSchema = new mongoose.Schema({
   appid: {
-    type: Number,
+    type: String,
     index: true
   },
   name: String,

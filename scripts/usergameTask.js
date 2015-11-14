@@ -40,6 +40,8 @@ function UserLoader(req, res, inUser, inAppId)
   this.res = res;
   this.user = inUser;
   this.inAppId = inAppId;
+  console.log(inAppId);
+
 }
 
 UserLoader.prototype.load = function(callback)
@@ -58,12 +60,7 @@ UserLoader.prototype.load = function(callback)
 
     dbGame = docs;
 
-    // console.log("trying game " + localAppId);
-
     // Load the user's stats for this game from the API
-
-
-    //limiter.removeTokens(.5, function() {
       request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
       {
         //console.log(response);
@@ -73,8 +70,6 @@ UserLoader.prototype.load = function(callback)
           callback(0,0);
           return;
         }
-
-        //console.log("found stats for id " + localAppId);
 
         var jsonParsed = JSON.parse(body);
 
@@ -110,13 +105,11 @@ UserLoader.prototype.load = function(callback)
             }
             else
             {
-              // todo callback with 0 0
               callback(localAppId, 0, 0);
             }
           }
           else
           {
-            console.log("natuurlijk");
             callback(localAppId, 0, 0);
           }
         }
@@ -125,7 +118,6 @@ UserLoader.prototype.load = function(callback)
           callback(localAppId, 0, 0);
         }
       });
-    //});
   });
 }
 

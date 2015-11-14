@@ -8,7 +8,7 @@ var UserGameSchema = new mongoose.Schema({
     index: true
   },
   appid: {
-    type: Number,
+    type: String,
     index: true
   },
     name: String,

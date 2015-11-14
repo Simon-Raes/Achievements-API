@@ -9,12 +9,15 @@ var userGameTask = require("../scripts/userGameTask.js");
 
 exports.downloadUserDetails = function(req, res, inSteamId)
 {
+  console.log("fuckaroro");
   // TODO: use inSteamId once testing is done, using an account with a low amount of games and achievements for testing here
   // var userId = "76561198075926354";
 
   // hardcoded kip id
-  var userId = "76561197960378945";
+  //var userId = "76561197960378945";
+  var userId = inSteamId;
 
+  // TODO: API sometimes sends back an HTML error, handle that instead of crashing completely
 
   // Download user info
   request('http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=EB5773FAAF039592D9383FA104EEA55D&steamids=' + userId, function (error, response, body)
@@ -37,7 +40,9 @@ exports.downloadUserDetails = function(req, res, inSteamId)
       {
         if (!error && response.statusCode == 200)
         {
+          console.log("downloaded user games!" + userId);
           var games = JSON.parse(body).response.games;
+
 
           // Values to set for the User after all games have been checked.
           var achievementCount = 0;
@@ -55,11 +60,13 @@ exports.downloadUserDetails = function(req, res, inSteamId)
               {
                 // TODO fix this, this is somehow never true, but there should definitely be some games in the DB that do not have achievements.
                 //counter++;
+
               }
               else
               {
+                console.log(userId);
+                console.log(user.steamid);
                 var UserGameTask = new userGameTask(res, req, user, entry.appid);
-
                 UserGameTask.load(function callback(appId, achieved, total)
                 {
                   achievementCount += achieved;
