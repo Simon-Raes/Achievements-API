@@ -3,6 +3,8 @@ var router = express.Router();
 var request = require('request');
 
 var User = require("../models/user").User;
+var DetailedUser = require("../models/detaileduser").DetailedUser;
+
 var Game = require("../models/game").Game;
 
 var userGameTask = require("../scripts/userGameTask.js");
@@ -52,6 +54,8 @@ exports.downloadUserDetails = function(req, res, inSteamId)
           var counter = 0;
 
           // Get the stats for every game
+          var gamesArray = [];
+
           games.forEach(function(entry)
           {
             Game.findOne({appid:Number(entry.appid)}, function (err, docs)
@@ -64,12 +68,17 @@ exports.downloadUserDetails = function(req, res, inSteamId)
               }
               else
               {
-                console.log(userId);
-                console.log(user.steamid);
+
                 var UserGameTask = new userGameTask(res, req, user, entry.appid);
-                UserGameTask.load(function callback(appId, achieved, total)
+                UserGameTask.load(function callback(appId, game, achieved, total)
                 {
                   achievementCount += achieved;
+
+                  if(game != null)
+                  {
+                    gamesArray.push(game);
+                    console.log(game);
+                  }
 
                   if(total != 0 && achieved >= total)
                   {
@@ -90,6 +99,25 @@ exports.downloadUserDetails = function(req, res, inSteamId)
                         console.log("saved user!");
                       });
                     });
+
+                    // TODO: the same for detaileduser
+
+                    DetailedUser.find({steamid:userId}).remove( function(){
+                      var composedUser = new DetailedUser({
+                        steamid: user.steamid,
+                        name: user.name,
+                        image: user.image,
+                        url: user.url,
+                        numberOfAchievements: user.numberOfAchievements,
+                        perfectGames: user.perfectGames,
+                        games: gamesArray
+                      });
+                      composedUser.save(function(err){
+                        if(err){console.log(err);}
+                        console.log("saved detaied user!");
+                      });
+                    });
+
                   }
                 });
               }

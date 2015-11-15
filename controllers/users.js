@@ -3,6 +3,7 @@ var router = express.Router();
 
 var User = require("../models/user").User;
 var DetailedUser = require("../models/detaileduser").DetailedUser;
+var UserGame = require("../models/usergame").UserGame;
 
 var userDetailsTask = require("../scripts/userDetailsTask.js");
 
@@ -18,16 +19,32 @@ router.get('/', function(req, res, next) {
 router.get('/:steamid', function(req, res, next) {
 
   // TODO: make this return a DetailedUser if that ever gets used.
-  User.findOne({"steamid":  req.params.steamid}, function(error, result) {
+  DetailedUser.findOne({"steamid":  req.params.steamid}, function(error, result) {
     if(result == undefined) {
 
-      // User isn' known yet, download his info first
-      userDetailsTask.downloadUserDetails(req, res, id);
-      // TODO add a callback or something so the response can be sent once the game has been retrieved
-      res.send("Try again in a couple of minutes.");
+
+      // User isn't known yet, download his info first
+      userDetailsTask.downloadUserDetails(req, res, req.params.steamid);
+      // TODO add a way to send the info once it has been retrieved and saved
+      res.send("Now downloading. Will be available later.");
     }
-    else {
-      res.json(result);
+    else
+    {
+      DetailedUser.find({"steamid":result.steamid}, function(error, user) {
+
+        // TODO: ? create DetailedUser when downloading instead of every time it's queried
+        // var composedUser = new DetailedUser({
+        //   steamid: result.steamid,
+        //   name: result.name,
+        //   image: result.image,
+        //   url: result.url,
+        //   numberOfAchievements: result.numberOfAchievements,
+        //   perfectGames: result.perfectGames,
+        //   games: gameResult
+        // });
+
+        res.json(user);
+      });
     }
   });
 });

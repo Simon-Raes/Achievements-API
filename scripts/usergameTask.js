@@ -13,19 +13,6 @@ var Game = require("../models/game").Game;
 var DetailedGame = require("../models/detailedgame").DetailedGame;
 
 
-// TODO
-// for every game downloaded:
-
-// store the gameforuser info in the usergame collection
-
-// store the needed info in the user collection
-// increase the user totalAchievements counter based on the number of achieved achievements of that game
-// increase the perfect games counter if he has all achievements
-
-// store the gameforuser info in the detaileduser collection
-
-
-
 var req;
 var res;
 var user;
@@ -33,15 +20,12 @@ var inAppId;
 
 module.exports = UserLoader;
 
-
 function UserLoader(req, res, inUser, inAppId)
 {
   this.req = req;
   this.res = res;
   this.user = inUser;
   this.inAppId = inAppId;
-  console.log(inAppId);
-
 }
 
 UserLoader.prototype.load = function(callback)
@@ -61,71 +45,64 @@ UserLoader.prototype.load = function(callback)
     dbGame = docs;
 
     // Load the user's stats for this game from the API
-      request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
+    request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + localAppId + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + localUser.steamid, function (error, response, body)
+    {
+      //console.log(response);
+      if(error)
       {
-        //console.log(response);
-        if(error)
+        console.log(error);
+        callback(0,0);
+        return;
+      }
+
+      var jsonParsed = JSON.parse(body);
+
+      if(jsonParsed.playerstats != undefined)
+      {
+        userGameStats = jsonParsed.playerstats;
+
+        if(dbGame != undefined && userGameStats != undefined)
         {
-          console.log(error);
-          callback(0,0);
-          return;
-        }
-
-        var jsonParsed = JSON.parse(body);
-
-        if(jsonParsed.playerstats != undefined)
-        {
-          userGameStats = jsonParsed.playerstats;
-
-          if(dbGame != undefined && userGameStats != undefined)
+          // WARNING this will never work if the game is not yet in the database
+          if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)
           {
-            // WARNING this will never work if the game is not yet in the database
-            if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)
-            {
-              // TODO steamId is not correct after saving as number, make it a String!
-              var userGame = new UserGame({
-                steamid: localUser.steamid,
-                appid: dbGame.appid,
-                name: dbGame.name,
-                stats: userGameStats.stats,
-                achievements: userGameStats.achievements
+            var userGame = new UserGame({
+              steamid: localUser.steamid,
+              appid: dbGame.appid,
+              name: dbGame.name,
+              stats: userGameStats.stats,
+              achievements: userGameStats.achievements
+            });
+
+            UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
+              if(error){console.log(error);}
+
+              userGame.save(function (err, userGame) {
+                if(err){console.log(err);}
+
+                // TODO: maybe clean up duplicate values here, some of them are already contained in the userGame.
+                callback(localAppId, userGame, userGameStats.achievements.length, dbGame.numberOfAchievements);
               });
-
-              UserGame.remove({appid: userGame.appid, steamid: userGame.steamid}, function(error, success){
-                if(error){console.log(error);}
-
-                userGame.save(function (err, userGame) {
-                  if(err){console.log(err);}
-
-                  // TODO: we're done, alert something
-                  // TODO: call back with userachievementscount = totalachievementscount
-                  callback(localAppId, userGameStats.achievements.length, dbGame.numberOfAchievements);
-                });
-              });
-            }
-            else
-            {
-              callback(localAppId, 0, 0);
-            }
+            });
           }
           else
           {
-            callback(localAppId, 0, 0);
+            callback(localAppId, null, 0, 0);
           }
         }
         else
         {
-          callback(localAppId, 0, 0);
+          callback(localAppId, null, 0, 0);
         }
-      });
+      }
+      else
+      {
+        callback(localAppId, null, 0, 0);
+      }
+    });
   });
 }
 
-
-function updateUserGame()
-{
-
-}
 
 
 // Use this somewhere else

@@ -7,15 +7,25 @@ var DetailedUserSchema = new mongoose.Schema({
   },
   name: String,
   image: String,
+  url: String,
+  numberOfAchievements: Number,
+  perfectGames: Number,
   games : [{
     appid: {
-      type: Number,
+      type: String,
       index: true
     },
     name: String,
-    achieved: Number,
-    total: Number
-  }]
+    stats: [{
+      name: String,
+      value: Number
+    }],
+    achievements: [{
+      name: String,
+      achieved: Boolean
+    }]
+  }
+]
 });
 
 var DetailedUser = mongoose.model("DetailedUser", DetailedUserSchema);
