@@ -8,6 +8,7 @@ var DetailedUser = require("../models/detaileduser").DetailedUser;
 var Game = require("../models/game").Game;
 
 var userGameTask = require("../scripts/userGameTask.js");
+var pg = require('pg');
 
 exports.downloadUserDetails = function(req, res, inSteamId)
 {
@@ -36,6 +37,34 @@ exports.downloadUserDetails = function(req, res, inSteamId)
         numberOfAchievements: 0,
         perfectGames: 0
       });
+
+
+
+
+
+
+    // todo don't commit credentials
+    var conString = "postgres://postgres:admin@localhost/simong";
+
+    pg.connect(conString, function(err, client, done) {
+      if(err) {
+        console.log(err);
+      }
+      console.log("success!");
+      client.query("INSERT INTO users VALUES (" + userId +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"');")
+      {
+        console.log("saved user");
+        done();
+      }
+    });
+
+
+
+
+
+
+
+
 
       // Download list of the games owned by this user
       request('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + userId, function (error, response, body)

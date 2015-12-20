@@ -6,6 +6,9 @@ var DetailedGame = require("../models/detailedgame").DetailedGame;
 
 var gameDetailsTask = require("../scripts/gameDetailsTask.js");
 
+var pg = require('pg');
+
+
 /* GET a list of all games. */
 router.get('/', function(req, res, next) {
   Game.find({}, function(error, result){
