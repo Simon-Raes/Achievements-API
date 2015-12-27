@@ -9,16 +9,17 @@ var Game = require("../models/game").Game;
 
 var userGameTask = require("../scripts/userGameTask.js");
 var pg = require('pg');
+var async = require('async');
 
 exports.downloadUserDetails = function(req, res, inSteamId)
 {
-  console.log("fuckaroro");
+  console.log("download user");
   // TODO: use inSteamId once testing is done, using an account with a low amount of games and achievements for testing here
   // var userId = "76561198075926354";
 
   // hardcoded kip id
-  //var userId = "76561197960378945";
-  var userId = inSteamId;
+  var userId = "76561197960378945";
+  // var userId = inSteamId;
 
   // TODO: API sometimes sends back an HTML error, handle that instead of crashing completely
 
@@ -29,131 +30,84 @@ exports.downloadUserDetails = function(req, res, inSteamId)
     {
       var userJson = JSON.parse(body).response.players[0];
 
-      var user = new User({
-        steamid: userId,
-        name: userJson.personaname,
-        image: userJson.avatarfull,
-        url: userJson.profileurl,
-        numberOfAchievements: 0,
-        perfectGames: 0
+      // todo don't commit credentials
+      var conString = "postgres://postgres:admin@localhost/simong";
+
+      pg.connect(conString, function(err, client, done)
+      {
+        if(err) {
+          console.log(err);
+        }
+        console.log("success!");
+        client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"');", function(err, result)
+        {
+          console.log("saved user");
+          done();
+        });
       });
 
-
-
-
-
-
-    // todo don't commit credentials
-    var conString = "postgres://postgres:admin@localhost/simong";
-
-    pg.connect(conString, function(err, client, done) {
-      if(err) {
-        console.log(err);
-      }
-      console.log("success!");
-      client.query("INSERT INTO users VALUES (" + userId +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"');")
-      {
-        console.log("saved user");
-        done();
-      }
-    });
-
-
-
-
-
-
-
-
-
       // Download list of the games owned by this user
-      request('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + userId, function (error, response, body)
+      request('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + userJson.steamid, function (error, response, body)
       {
+        if(error)
+        {
+          console.log("error downloading user's games: " + err);
+        }
         if (!error && response.statusCode == 200)
         {
           console.log("downloaded user games!" + userId);
           var games = JSON.parse(body).response.games;
 
-
-          // Values to set for the User after all games have been checked.
-          var achievementCount = 0;
-          var perfectedGames = 0;
           // Counter to know when all games have been checked.
           var numberOfGames = games.length;
-          var counter = 0;
+
 
           // Get the stats for every game
           var gamesArray = [];
+          var queries = [];
 
-          games.forEach(function(entry)
+          pg.connect(conString, function(err, client, done)
           {
-            Game.findOne({appid:Number(entry.appid)}, function (err, docs)
+
+            if(err)
             {
-              if(err || (!docs.hasStats && docs.numberOfAchievements <= 0))
-              {
-                // TODO fix this, this is somehow never true, but there should definitely be some games in the DB that do not have achievements.
-                //counter++;
+              console.log(err);
+            }
 
-              }
-              else
-              {
 
-                var UserGameTask = new userGameTask(res, req, user, entry.appid);
-                UserGameTask.load(function callback(appId, game, achieved, total)
+            games.forEach(function(entry)
+            {
+              var f = function(callback)
+              {
+                // todo clear user's games first
+                client.query("INSERT INTO usergames VALUES (" + userJson.steamid + ", " + entry.appid + ");", function(err, result)
                 {
-                  achievementCount += achieved;
-
-                  if(game != null)
-                  {
-                    gamesArray.push(game);
-                    console.log(game);
+                  if(err) {
+                    // TODO conflict resolution, or just update to postgres 9.5 for UPSERT
+                    console.log("insert error " + err);
                   }
+                  callback(null, "done");
+                  console.log("saved " + entry.appid);
 
-                  if(total != 0 && achieved >= total)
-                  {
-                    perfectedGames ++;
-                  }
-
-                  counter ++;
-                  if(counter == numberOfGames)
-                  {
-                    user.numberOfAchievements = achievementCount;
-                    user.perfectGames = perfectedGames;
-
-                    // Delete the user's old data and save the new one.
-                    User.find({steamid:userId}).remove( function(){
-
-                      user.save(function(err){
-                        if(err){console.log(err);}
-                        console.log("saved user!");
-                      });
-                    });
-
-                    // TODO: the same for detaileduser
-
-                    DetailedUser.find({steamid:userId}).remove( function(){
-                      var composedUser = new DetailedUser({
-                        steamid: user.steamid,
-                        name: user.name,
-                        image: user.image,
-                        url: user.url,
-                        numberOfAchievements: user.numberOfAchievements,
-                        perfectGames: user.perfectGames,
-                        games: gamesArray
-                      });
-                      composedUser.save(function(err){
-                        if(err){console.log(err);}
-                        console.log("saved detaied user!");
-                      });
-                    });
-
-                  }
                 });
+              };
+
+              queries.push(f);
+            });
+
+
+            async.series(queries, function(err, results)
+            {
+              console.log("done queries");
+              if(err)
+              {
+                console.log("err " + err);
               }
+              done();
             });
           });
         }
       });
     }
   });
-}
+};

@@ -57,11 +57,11 @@ UserLoader.prototype.load = function(callback)
 
       var jsonParsed = JSON.parse(body);
 
-      if(jsonParsed.playerstats != undefined)
+      if(jsonParsed.playerstats !== undefined)
       {
         userGameStats = jsonParsed.playerstats;
 
-        if(dbGame != undefined && userGameStats != undefined)
+        if(dbGame !== undefined && userGameStats !== undefined)
         {
           // WARNING this will never work if the game is not yet in the database
           if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)
@@ -101,7 +101,7 @@ UserLoader.prototype.load = function(callback)
       }
     });
   });
-}
+};
 
 
 

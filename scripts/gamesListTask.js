@@ -31,6 +31,7 @@ exports.downloadGamesList = function(req, res, callback) {
 
 
           // TODO find and replace apostrophes '
+          // causes error with
           var escapedName = entry.name;
 
           var f = function(callback){
@@ -40,24 +41,17 @@ exports.downloadGamesList = function(req, res, callback) {
                 // TODO conflict resolution, or just update to postgres 9.5 for UPSERT
                 console.log("insert error " + err);
               }
+              callback(null, "done");
               console.log("saved " + entry.appid);
-              
-            }
-            );
 
+            });
           }
 
           queries.push(f);
 
         });
 
-        console.log(queries.length);
-
-
-
-        async.series([queries[0], queries[1]]);
-
-        /*, function(err, results){
+        async.series(queries, function(err, results){
           // TODO figure out why it never reaches this completion block
           // and why series doesn't progress past the first query
           console.log("done queries");
@@ -66,7 +60,8 @@ exports.downloadGamesList = function(req, res, callback) {
             console.log("err " + err);
           }
           done();
-        });*/
+          callback("done");
+        });
       });
     }
   });

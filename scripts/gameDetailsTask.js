@@ -38,10 +38,10 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
         schemeReady = true;
 
         // Check if the game has achievements or stats.
-        if(gameSchemeJson.game.gameName != undefined)
+        if(gameSchemeJson.game.gameName !== undefined)
         {
           numberOfAchievements = gameSchemeJson.game.availableGameStats.achievements.length;
-          hasStats = ((gameSchemeJson.game.availableGameStats.stats != undefined) && (gameSchemeJson.game.availableGameStats.stats.length > 0));
+          hasStats = ((gameSchemeJson.game.availableGameStats.stats !== undefined) && (gameSchemeJson.game.availableGameStats.stats.length > 0));
         }
 
         combineData();
