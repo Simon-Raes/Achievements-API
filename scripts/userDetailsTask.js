@@ -2,24 +2,17 @@ var express = require('express');
 var router = express.Router();
 var request = require('request');
 
-var User = require("../models/user").User;
-var DetailedUser = require("../models/detaileduser").DetailedUser;
-
-var Game = require("../models/game").Game;
-
 var userGameTask = require("../scripts/userGameTask.js");
 var pg = require('pg');
 var async = require('async');
 
-exports.downloadUserDetails = function(req, res, inSteamId)
+// Downloads and stores info about the user and his list of games
+// User: steamid, name, avatar, profile url
+// Games: appid
+exports.downloadUserDetails = function(req, res, userId)
 {
-  console.log("download user");
-  // TODO: use inSteamId once testing is done, using an account with a low amount of games and achievements for testing here
-  // var userId = "76561198075926354";
-
-  // hardcoded kip id
-  var userId = "76561197960378945";
-  // var userId = inSteamId;
+  // TODO: use incoming userId once testing is done, using an account with a lower amount of games and achievements for testing here (kip):
+  userId = "76561197960378945";
 
   // TODO: API sometimes sends back an HTML error, handle that instead of crashing completely
 
@@ -30,6 +23,8 @@ exports.downloadUserDetails = function(req, res, inSteamId)
     {
       var userJson = JSON.parse(body).response.players[0];
 
+      var queries = [];
+
       // todo don't commit credentials
       var conString = "postgres://postgres:admin@localhost/simong";
 
@@ -39,7 +34,8 @@ exports.downloadUserDetails = function(req, res, inSteamId)
           console.log(err);
         }
         console.log("success!");
-        client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"');", function(err, result)
+        client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"') "+
+        "ON CONFLICT DO UPDATE SET name = exluded.name, image = excluded.image, url = excluded.url;", function(err, result)
         {
           console.log("saved user");
           done();
@@ -58,44 +54,43 @@ exports.downloadUserDetails = function(req, res, inSteamId)
           console.log("downloaded user games!" + userId);
           var games = JSON.parse(body).response.games;
 
-          // Counter to know when all games have been checked.
-          var numberOfGames = games.length;
-
-
-          // Get the stats for every game
-          var gamesArray = [];
-          var queries = [];
-
           pg.connect(conString, function(err, client, done)
           {
+            if(err) console.log(err);
 
-            if(err)
+            // First clear the user's games
+            var clearF = function(callback)
             {
-              console.log(err);
-            }
+              client.query("DELETE FROM ONLY usergames WHERE steamid = '" + userJson.steamid + "';", function(err, result)
+              {
+                if(err) {
+                  console.log("delete error " + err);
+                }
+                callback(null, "clear done");
+              });
+            };
+            queries.push(clearF);
 
-
+            // Then insert the new list of his games
             games.forEach(function(entry)
             {
               var f = function(callback)
               {
-                // todo clear user's games first
                 client.query("INSERT INTO usergames VALUES (" + userJson.steamid + ", " + entry.appid + ");", function(err, result)
                 {
                   if(err) {
-                    // TODO conflict resolution, or just update to postgres 9.5 for UPSERT
-                    console.log("insert error " + err);
+                    console.log("insert error: " + err);
                   }
-                  callback(null, "done");
+                  callback(null, "insert done");
                   console.log("saved " + entry.appid);
 
                 });
               };
 
-              queries.push(f);
+            queries.push(f);
             });
 
-
+            // Execute all queries
             async.series(queries, function(err, results)
             {
               console.log("done queries");

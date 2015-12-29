@@ -2,7 +2,7 @@ var express = require('express');
 var router = express.Router();
 
 var pg = require('pg');
-var async = require('async')
+var async = require('async');
 var request = require('request');
 
 var Game = require("../models/game").Game;
@@ -31,12 +31,12 @@ exports.downloadGamesList = function(req, res, callback) {
 
 
           // TODO find and replace apostrophes '
-          // causes error with
+          // causes error with names like "Don't Starve"
           var escapedName = entry.name;
 
-          var f = function(callback){
-            client.query("INSERT INTO games VALUES (" + entry.appid +", '" + escapedName + "');"
-            , function(err, result){
+          var f = function(callback)
+          {
+            client.query("INSERT INTO games VALUES (" + entry.appid +", '" + escapedName + "');", function(err, result){
               if(err) {
                 // TODO conflict resolution, or just update to postgres 9.5 for UPSERT
                 console.log("insert error " + err);
@@ -45,7 +45,7 @@ exports.downloadGamesList = function(req, res, callback) {
               console.log("saved " + entry.appid);
 
             });
-          }
+          };
 
           queries.push(f);
 
@@ -65,4 +65,4 @@ exports.downloadGamesList = function(req, res, callback) {
       });
     }
   });
-}
+};
