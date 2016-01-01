@@ -32,4 +32,4 @@ var DetailedUser = mongoose.model("DetailedUser", DetailedUserSchema);
 
 module.exports = {
   DetailedUser: DetailedUser
-}
+};

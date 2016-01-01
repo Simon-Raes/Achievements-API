@@ -34,7 +34,7 @@ exports.downloadUserDetails = function(req, res, userId)
           console.log(err);
         }
         console.log("success!");
-        client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"') "+
+        client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"') " +
         "ON CONFLICT DO UPDATE SET name = exluded.name, image = excluded.image, url = excluded.url;", function(err, result)
         {
           console.log("saved user");
@@ -51,7 +51,6 @@ exports.downloadUserDetails = function(req, res, userId)
         }
         if (!error && response.statusCode == 200)
         {
-          console.log("downloaded user games!" + userId);
           var games = JSON.parse(body).response.games;
 
           pg.connect(conString, function(err, client, done)
@@ -87,18 +86,18 @@ exports.downloadUserDetails = function(req, res, userId)
                 });
               };
 
-            queries.push(f);
+              queries.push(f);
             });
 
             // Execute all queries
             async.series(queries, function(err, results)
             {
-              console.log("done queries");
               if(err)
               {
                 console.log("err " + err);
               }
               done();
+              console.log("done.");
             });
           });
         }

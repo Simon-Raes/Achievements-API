@@ -20,7 +20,7 @@ router.get('/:steamid', function(req, res, next) {
 
   // TODO: make this return a DetailedUser if that ever gets used.
   DetailedUser.findOne({"steamid":  req.params.steamid}, function(error, result) {
-    if(result == undefined) {
+    if(result === undefined) {
 
 
       // User isn't known yet, download his info first

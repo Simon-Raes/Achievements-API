@@ -30,4 +30,4 @@ var DetailedGame = mongoose.model("DetailedGame", DetailedGameSchema);
 
 module.exports = {
   DetailedGame: DetailedGame
-}
+};

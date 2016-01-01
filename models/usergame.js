@@ -26,4 +26,4 @@ var UserGame = mongoose.model("UserGame", UserGameSchema);
 
 module.exports = {
   UserGame: UserGame
-}
+};

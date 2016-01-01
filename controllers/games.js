@@ -18,16 +18,22 @@ router.get('/', function(req, res, next) {
 
 /* GET the details of a single game. */
 router.get('/:appid', function(req, res, next) {
+  console.log("onde");
 
   var number = Number(req.params.appid);
 
   DetailedGame.findOne({"appid":number}, function(error, result) {
-    if(result == undefined) {
+
+    console.log("sone");
+
+    // if(result === undefined || result === null) {
+    //   console.log("oddne");
+
       // Game isn't known yet, download it first
       gameDetailsTask.downloadGameDetails(req, res, number, function callback(result)
       {
         console.log("in callback");
-        if(result != undefined)
+        if(result !== undefined && result !== null)
         {
           res.json(result);
         }
@@ -38,10 +44,12 @@ router.get('/:appid', function(req, res, next) {
       });
       // TODO add a callback or something so the response can be sent once the game has been retrieved
       //res.send("Try again in a minute.");
-    }
-    else {
-      res.json(result);
-    }
+    // }
+    // else {
+    //   console.log("deone");
+    //
+    //   res.json(result);
+    // }
   });
 });
 
