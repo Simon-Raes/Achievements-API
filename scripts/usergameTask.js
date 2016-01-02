@@ -57,11 +57,11 @@ UserLoader.prototype.load = function(callback)
 
       var jsonParsed = JSON.parse(body);
 
-      if(jsonParsed.playerstats !== undefined)
+      if(jsonParsed.playerstats !== undefined && jsonParsed.playerstats !== null)
       {
         userGameStats = jsonParsed.playerstats;
 
-        if(dbGame !== undefined && userGameStats !== undefined)
+        if(dbGame !== undefined && dbGame !== null && userGameStats !== undefined && userGameStats !== null)
         {
           // WARNING this will never work if the game is not yet in the database
           if(dbGame.numberOfAchievements > 0 || dbGame.hasStats)

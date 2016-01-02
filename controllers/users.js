@@ -1,9 +1,6 @@
 var express = require('express');
 var router = express.Router();
-
-var User = require("../models/user").User;
-var DetailedUser = require("../models/detaileduser").DetailedUser;
-var UserGame = require("../models/usergame").UserGame;
+var pg = require('pg');
 
 var userDetailsTask = require("../scripts/userDetailsTask.js");
 
@@ -18,34 +15,38 @@ router.get('/', function(req, res, next) {
   // TODO: make this accept some parameter to force a refresh
 router.get('/:steamid', function(req, res, next) {
 
-  // TODO: make this return a DetailedUser if that ever gets used.
-  DetailedUser.findOne({"steamid":  req.params.steamid}, function(error, result) {
-    if(result === undefined) {
 
+  var conString = "postgres://postgres:admin@localhost/achievements";
 
-      // User isn't known yet, download his info first
-      userDetailsTask.downloadUserDetails(req, res, req.params.steamid);
-      // TODO add a way to send the info once it has been retrieved and saved
-      res.send("Now downloading. Will be available later.");
+  pg.connect(conString, function(err, client, done)
+  {
+    if(err) {
+      console.log(err);
     }
-    else
+
+    client.query("SELECT * FROM users WHERE steamid = " + req.params.steamid + ";", function(error, result)
     {
-      DetailedUser.find({"steamid":result.steamid}, function(error, user) {
-
-        // TODO: ? create DetailedUser when downloading instead of every time it's queried
-        // var composedUser = new DetailedUser({
-        //   steamid: result.steamid,
-        //   name: result.name,
-        //   image: result.image,
-        //   url: result.url,
-        //   numberOfAchievements: result.numberOfAchievements,
-        //   perfectGames: result.perfectGames,
-        //   games: gameResult
-        // });
-
-        res.json(user);
-      });
-    }
+      if(error)
+      {
+        console.log(error);
+      }
+      if(result === undefined || result === null || result.rows.length === 0)
+      {
+        userDetailsTask.downloadUserDetails(req, res, req.params.steamid, function(error, result){
+          if(!error)
+          {
+            res.json(result);
+          }
+          else {
+            res.send("errored");
+          }
+        });
+      }
+      else {
+        res.json(result.rows[0]);
+      }
+      done();
+    });
   });
 });
 

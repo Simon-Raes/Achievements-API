@@ -2,17 +2,12 @@ var request = require('request');
 var async = require('async');
 var pg = require('pg');
 
-var Game = require("../models/game").Game;
-var DetailedGame = require("../models/detailedgame").DetailedGame;
-
 /*
 * Downloads and stores the stats for a single game. Pass in the game's appid to specificy which one.
 */
 
 var appId;
-
 var response;
-
 var callback;
 
 
@@ -83,22 +78,20 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
     if(numberOfAchievements > 0 || hasStats)
     {
 
-
-
-
-      var conString = "postgres://postgres:admin@localhost/simong";
+      var conString = "postgres://postgres:admin@localhost/achievements";
       pg.connect(conString, function(err, client, done)
       {
         var queries = [];
 
         if(hasStats)
         {
-          game.availableGameStats.achievements.forEach(function(item){
+          game.availableGameStats.stats.forEach(function(item){
 
+            item.displayName = item.displayName.split("'").join("''");
             var statsQuery = function(callback)
             {
               client.query("INSERT INTO stats VALUES ('" + item.name + "', '" + item.displayName + "', '" + appId + "') " +
-              "ON CONFLICT DO UPDATE SET name = exluded.name, displayName = exluded.displayName, appid = excluded.appid;", function(err, result)
+              "ON CONFLICT (name) DO UPDATE SET displayName = excluded.displayName, appid = excluded.appid;", function(err, result)
               {
                 if(err) {
                   console.log("stats insert error " + err);
@@ -112,24 +105,25 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
 
         // Need to loop over all achievements to add their global percentage
         game.availableGameStats.achievements.forEach(function(item){
-          // FIXME can this not just return an item instead of an array with 1 item?
 
           console.log(item.name);
 
-          var globalPercentage = getGlobalPercentage(globalAchievements, item.name.toLowerCase())[0].percent;
+          var globalPercentage = getGlobalPercentage(globalAchievements, item.name.toLowerCase()).percent;
           item.percent = globalPercentage;
+          item.displayName = item.displayName.split("'").join("''");
+          item.description = item.description.split("'").join("''");
 
           var achievementsQuery = function(callback)
           {
             client.query("INSERT INTO achievements VALUES ('" +
             item.name + "', '" +
             item.displayName + "', " +
-            item.hidden + ", '" +
+            (item.hidden == 1 ? true : false) + ", '" +
             item.description + "', '" +
             item.icon + "', '" +
             item.icongray + "', " +
             appId + ") " +
-            "ON CONFLICT DO UPDATE SET name = exluded.name, displayName = excluded.displayName, hidden = excluded.hidden, description = excluded.description, icon = excluded.icon, icongray = excluded.icongray, appid = excluded.appid;", function(err, result)
+            "ON CONFLICT (name) DO UPDATE SET displayName = excluded.displayName, hidden = excluded.hidden, description = excluded.description, icon = excluded.icon, icongray = excluded.icongray, appid = excluded.appid;", function(err, result)
             {
               if(err) {
                 console.log("achievement insert error " + err);
@@ -152,57 +146,6 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
         });
 
       });
-
-
-
-
-
-
-      // Game.findOne({appid:Number(appId)}, function (err, docs){
-      //
-      //   if(err){console.log(err);}
-      //
-      //   // Set the game name, since this field is often empty in the Steam scheme API.
-      //   game.name = docs.name;
-      //   // Add the appId, could be useful.
-      //   game.appid = Number(appId);
-      //
-      //   /*
-      //   * Saves the game details to the detailedGames collection.
-      //   */
-      //
-      //
-      //
-      //   // todo this needs to save to gamestats and gameachievements, not 1 game record
-      //   DetailedGame.find({appid:Number(appId)}).remove( function(){
-      //
-      //     var detgame = new DetailedGame(gameSchemeJson.game);
-      //
-      //     callback(detgame);
-      //
-      //     detgame.save(function(err){
-      //       if(err){console.log(err);}
-      //
-      //       /*
-      //       * Updates the game in the simple games table. Adds the hasStats and numberOfAchievements fields.
-      //       todo this can be removed
-      //
-      //       */
-      //       Game.update(
-      //         {appid:Number(appId)},
-      //         {$set:
-      //           {"hasStats":hasStats,
-      //           "numberOfAchievements":Number(numberOfAchievements)}
-      //         },
-      //         {},
-      //         function(e, docs)
-      //         {
-      //           console.log('All done.');
-      //         }
-      //       );
-      //     });
-      //   });
-      // });
     }
     else {
       // Game has no achievements or stats
@@ -213,22 +156,17 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
 };
 
 
-
-
-
-
-
-
 function invalidGame()
 {
   console.log("invalid game detected");
   callback(null);
 }
 
+
 function getGlobalPercentage(globalAchievements, searchName) {
   return globalAchievements.filter(
     function(gameGlobalStatsJson) {
       return gameGlobalStatsJson.name.toLowerCase() == searchName;
     }
-  );
+  )[0];
 }

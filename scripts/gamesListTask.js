@@ -5,15 +5,13 @@ var pg = require('pg');
 var async = require('async');
 var request = require('request');
 
-var Game = require("../models/game").Game;
-
 exports.downloadGamesList = function(req, res, callback) {
 
   request('http://api.steampowered.com/ISteamApps/GetAppList/v2', function (error, response, body) {
     if (!error && response.statusCode == 200) {
 
       var json = JSON.parse(body);
-      var conString = "postgres://postgres:admin@localhost/simong";
+      var conString = "postgres://postgres:admin@localhost/achievements";
 
       pg.connect(conString, function(err, client, done) {
         if(err) {
@@ -30,19 +28,20 @@ exports.downloadGamesList = function(req, res, callback) {
           //console.log("now saving  " + entry.appid + " " + entry.name);
 
 
-          // TODO find and replace apostrophes '
-          // causes error with names like "Don't Starve"
-          var escapedName = entry.name;
+          // Escape all apostrophes.
+          var escapedName = entry.name.split("'").join("''");
 
           var f = function(callback)
           {
-            client.query("INSERT INTO games VALUES (" + entry.appid +", '" + escapedName + "');", function(err, result){
+            client.query("INSERT INTO games VALUES (" + entry.appid +", '" + escapedName + "') "+
+            "ON CONFLICT (appid) DO UPDATE SET name = excluded.name;", function(err, result){
               if(err) {
                 // TODO conflict resolution, or just update to postgres 9.5 for UPSERT
                 console.log("insert error " + err);
+                console.log(escapedName);
               }
               callback(null, "done");
-              console.log("saved " + entry.appid);
+              // console.log("saved " + entry.appid);
 
             });
           };

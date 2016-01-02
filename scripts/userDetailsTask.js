@@ -2,23 +2,27 @@ var express = require('express');
 var router = express.Router();
 var request = require('request');
 
-var userGameTask = require("../scripts/userGameTask.js");
+var userGameDetailsTask = require("../scripts/userGamesDetailsTask.js");
 var pg = require('pg');
 var async = require('async');
 
 // Downloads and stores info about the user and his list of games
 // User: steamid, name, avatar, profile url
 // Games: appid
-exports.downloadUserDetails = function(req, res, userId)
+exports.downloadUserDetails = function(req, res, userId, callback)
 {
   // TODO: use incoming userId once testing is done, using an account with a lower amount of games and achievements for testing here (kip):
   userId = "76561197960378945";
 
-  // TODO: API sometimes sends back an HTML error, handle that instead of crashing completely
+  // TODO: API sometimes sends back an HTML error, handle that instead of crashing
 
   // Download user info
   request('http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=EB5773FAAF039592D9383FA104EEA55D&steamids=' + userId, function (error, response, body)
   {
+    if(error)
+    {
+      console.log(error);
+    }
     if (!error && response.statusCode == 200)
     {
       var userJson = JSON.parse(body).response.players[0];
@@ -26,7 +30,7 @@ exports.downloadUserDetails = function(req, res, userId)
       var queries = [];
 
       // todo don't commit credentials
-      var conString = "postgres://postgres:admin@localhost/simong";
+      var conString = "postgres://postgres:admin@localhost/achievements";
 
       pg.connect(conString, function(err, client, done)
       {
@@ -35,8 +39,12 @@ exports.downloadUserDetails = function(req, res, userId)
         }
         console.log("success!");
         client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"') " +
-        "ON CONFLICT DO UPDATE SET name = exluded.name, image = excluded.image, url = excluded.url;", function(err, result)
+        "ON CONFLICT (steamid) DO UPDATE SET name = excluded.name, image = excluded.image, url = excluded.url;", function(err, result)
         {
+          if(error)
+          {
+            console.log(error);
+          }
           console.log("saved user");
           done();
         });
@@ -58,7 +66,7 @@ exports.downloadUserDetails = function(req, res, userId)
             if(err) console.log(err);
 
             // First clear the user's games
-            var clearF = function(callback)
+            var funcClearGames = function(callback)
             {
               client.query("DELETE FROM ONLY usergames WHERE steamid = '" + userJson.steamid + "';", function(err, result)
               {
@@ -68,35 +76,49 @@ exports.downloadUserDetails = function(req, res, userId)
                 callback(null, "clear done");
               });
             };
-            queries.push(clearF);
+            queries.push(funcClearGames);
 
             // Then insert the new list of his games
-            games.forEach(function(entry)
+            if(games.length > 0)
             {
-              var f = function(callback)
+              games.forEach(function(entry)
               {
-                client.query("INSERT INTO usergames VALUES (" + userJson.steamid + ", " + entry.appid + ");", function(err, result)
+                var funcGameDetails = function(callback)
                 {
-                  if(err) {
-                    console.log("insert error: " + err);
-                  }
-                  callback(null, "insert done");
-                  console.log("saved " + entry.appid);
+                  userGameDetailsTask.gameDetails(entry.appid, userJson.steamid, function(error, result){
+                    console.log(result);
+                    callback(null, "test done");
+                  });
+                };
+                queries.push(funcGameDetails);
 
-                });
-              };
+                var funcGame = function(callback)
+                {
+                  client.query("INSERT INTO usergames VALUES (" + userJson.steamid + ", " + entry.appid + ");", function(err, result)
+                  {
+                    if(err) {
+                      callback(error, null);
+                      console.log("insert error: " + err);
+                      return;
+                    }
+                    console.log("saved " + entry.appid);
+                    callback(null, "insert done");
+                  });
+                };
+                queries.push(funcGame);
 
-              queries.push(f);
-            });
+              });
+            }
 
             // Execute all queries
-            async.series(queries, function(err, results)
+            async.parallel(queries, function(err, results)
             {
               if(err)
               {
                 console.log("err " + err);
               }
               done();
+              callback(null, userJson);
               console.log("done.");
             });
           });
