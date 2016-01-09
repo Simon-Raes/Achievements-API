@@ -3,6 +3,8 @@ var router = express.Router();
 var async = require('async');
 var pg = require('pg');
 
+var constants = require('../util/constants');
+
 var gamesTask = require("../scripts/gamesListTask.js");
 var usersTask = require("../scripts/userDetailsTask.js");
 var gameDetailsTask = require("../scripts/gameDetailsTask.js");
@@ -19,18 +21,20 @@ router.get('/games', function(req, res, next) {
   });
 });
 
-/**Downloads the details for all games.*/
+
+/*
+*Downloads the detailed info of all games.
+*/
 router.get('/detailed', function(req, res, next) {
   var queries = [];
 
   loadGames(function(error, result){
 
+    // Limited to the first 50 for testing
+    // todo, try without limit! :o
     for (i = 0; i < 50; i++) {
-
-
       // var funcGameDetails = ;
       queries.push(makeGameFunction(req, res, result, i));
-
     }
 
     // Execute all queries
@@ -58,7 +62,9 @@ router.get('/user/:steamid', function(req, res, next) {
 });
 
 
-/**Utils*/
+/*
+*Utils
+*/
 function makeGameFunction(req, res, result, i) {
     return function(callback){
       gameDetailsTask.downloadGameDetails(req, res, result[i].appid, function taskCallback(error, result){
@@ -79,8 +85,8 @@ function makeGameFunction(req, res, result, i) {
 
 // TODO: this is duplicated from games.js
 function loadGames(callback){
-  var conString = "postgres://postgres:admin@localhost/achievements";
-  pg.connect(conString, function(err, client, done)
+
+  pg.connect(constants.CONNECTION_STRING, function(err, client, done)
   {
     if(err) {
       callback(error, null);

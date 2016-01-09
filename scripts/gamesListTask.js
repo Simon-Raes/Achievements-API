@@ -11,9 +11,8 @@ exports.downloadGamesList = function(req, res, callback) {
     if (!error && response.statusCode == 200) {
 
       var json = JSON.parse(body);
-      var conString = "postgres://postgres:admin@localhost/achievements";
 
-      pg.connect(conString, function(err, client, done) {
+      pg.connect(constants.CONNECTION_STRING, function(err, client, done) {
         if(err) {
           console.log(err);
         }

@@ -29,10 +29,7 @@ exports.downloadUserDetails = function(req, res, userId, callback)
 
       var queries = [];
 
-      // todo don't commit credentials
-      var conString = "postgres://postgres:admin@localhost/achievements";
-
-      pg.connect(conString, function(err, client, done)
+      pg.connect(constants.CONNECTION_STRING, function(err, client, done)
       {
         if(err) {
           console.log(err);

@@ -1,12 +1,15 @@
 var express = require('express');
 var router = express.Router();
+var pg = require('pg');
+
+var constants = require('../util/constants');
 
 var gameDetailsTask = require("../scripts/gameDetailsTask.js");
 
-var pg = require('pg');
 
-
-/* GET a list of all games. Basic info only (appid and name). */
+/*
+* GET a list of all games. Basic info only (appid and name).
+*/
 router.get('/', function(req, res, next) {
   loadGames(function(error, result){
     console.log(result);
@@ -23,15 +26,16 @@ router.get('/', function(req, res, next) {
 
 
 
-/* GET the details of a single game. */
+/*
+* GET the details of a single game.
+TODO: also include its achievements and stats
+*/
 router.get('/:appid', function(req, res, next) {
   console.log("onde");
 
   var number = Number(req.params.appid);
 
-  var conString = "postgres://postgres:admin@localhost/achievements";
-
-  pg.connect(conString, function(err, client, done)
+  pg.connect(constants.CONNECTION_STRING, function(err, client, done)
   {
     if(err) {
       console.log(err);
@@ -66,8 +70,8 @@ router.get('/:appid', function(req, res, next) {
 
 
 function loadGames(callback){
-  var conString = "postgres://postgres:admin@localhost/achievements";
-  pg.connect(conString, function(err, client, done)
+
+  pg.connect(constants.CONNECTION_STRING, function(err, client, done)
   {
     if(err) {
       callback(error, null);

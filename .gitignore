@@ -77,3 +77,6 @@ $RECYCLE.BIN/
 
 # Local mongo db
 localdatabase/
+
+# info
+*util/constants.js

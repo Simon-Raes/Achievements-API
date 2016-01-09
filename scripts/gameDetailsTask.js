@@ -91,8 +91,7 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
     if(globalAchievements !== undefined && globalAchievements !== null && (numberOfAchievements > 0 || hasStats))
     {
 
-      var conString = "postgres://postgres:admin@localhost/achievements";
-      pg.connect(conString, function(err, client, done)
+      pg.connect(constants.CONNECTION_STRING, function(err, client, done)
       {
         var queries = [];
 
