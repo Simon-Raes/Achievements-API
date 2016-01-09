@@ -8,9 +8,6 @@ var async = require('async');
 exports.gameDetails = function(appid, steamid, mainCallback){
   console.log(appid);
 
-  var conString = "postgres://postgres:admin@localhost/achievements";
-
-
   request('http://api.steampowered.com/ISteamUserStats/GetUserStatsForGame/v0002/?appid=' + appid + '&key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + steamid, function (error, response, body)
   {
 
@@ -25,7 +22,7 @@ exports.gameDetails = function(appid, steamid, mainCallback){
 
     if(jsonParsed.playerstats !== undefined && jsonParsed.playerstats !== null)
     {
-      pg.connect(conString, function(err, client, done)
+      pg.connect(constants.CONNECTION_STRING, function(err, client, done)
       {
         userGameStats = jsonParsed.playerstats;
         var queries = [];
@@ -48,7 +45,7 @@ exports.gameDetails = function(appid, steamid, mainCallback){
                 }
                 callback(null, "insert done");
               });
-            };  
+            };
             queries.push(funcAchievements);
           });
 
