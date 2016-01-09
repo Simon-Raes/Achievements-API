@@ -13,7 +13,7 @@ var callback;
 
 exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
 
-  console.log("ss ");
+  console.log(inAppId);
   response = inRes;
   appId = inAppId;
   callback = inCallback;
@@ -24,9 +24,12 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
   var one = function(callback){
     request('http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=EB5773FAAF039592D9383FA104EEA55D&appid=' + appId, function (error, response, body) {
 
-      if (!error && response.statusCode == 200)
-       {
-        callback(null, JSON.parse(body));
+      var r = JSON.parse(body);
+      console.log("fml");
+      console.log(r);
+      if (!error && response.statusCode == 200 && r !== null && r.game !== null)
+      {
+        callback(null, r);
       }
       else
       {
@@ -59,11 +62,21 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
       console.log("err " + err);
     }
     // combine data
-
     var gameSchemeJson = results[0];
+
+    if(gameSchemeJson === undefined || gameSchemeJson === null)
+    {
+      inCallback("error", "error");
+      return;
+    }
+
     var game = gameSchemeJson.game;
     var gameGlobalStatsJson = results[1];
-    var globalAchievements = gameGlobalStatsJson.achievementpercentages.achievements;
+    var globalAchievements;
+    if(gameGlobalStatsJson !== null)
+    {
+      globalAchievements = gameGlobalStatsJson.achievementpercentages.achievements;
+    }
 
     // Check if the game has achievements or stats.
     var numberOfAchievements = 0;
@@ -71,11 +84,11 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
 
     if(game.gameName !== undefined && game.gameName !== null)
     {
-      numberOfAchievements = game.availableGameStats.achievements.length;
+      numberOfAchievements = (game.availableGameStats.achievements === null || game.availableGameStats.achievements === undefined) ? 0 : game.availableGameStats.achievements.length;
       hasStats = ((game.availableGameStats.stats !== undefined && game.availableGameStats.stats !== null) && (game.availableGameStats.stats.length > 0));
     }
 
-    if(numberOfAchievements > 0 || hasStats)
+    if(globalAchievements !== undefined && globalAchievements !== null && (numberOfAchievements > 0 || hasStats))
     {
 
       var conString = "postgres://postgres:admin@localhost/achievements";
@@ -95,44 +108,53 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
               {
                 if(err) {
                   console.log("stats insert error " + err);
+                  callback(err, "error");
+                  return;
                 }
                 callback(null, "stats insert done");
+                return;
               });
             };
             queries.push(statsQuery);
           });
         }
 
-        // Need to loop over all achievements to add their global percentage
-        game.availableGameStats.achievements.forEach(function(item){
+        if(numberOfAchievements > 0)
+        {
+          // Need to loop over all achievements to add their global percentage
+          game.availableGameStats.achievements.forEach(function(item){
 
-          console.log(item.name);
+            console.log(item.name);
 
-          var globalPercentage = getGlobalPercentage(globalAchievements, item.name.toLowerCase()).percent;
-          item.percent = globalPercentage;
-          item.displayName = item.displayName.split("'").join("''");
-          item.description = item.description.split("'").join("''");
+            var globalPercentage = getGlobalPercentage(globalAchievements, item.name.toLowerCase()).percent;
+            item.percent = globalPercentage;
+            item.displayName = (item.displayName === null || item.displayName === undefined) ? "" : item.displayName.split("'").join("''");
+            item.description = (item.description === null || item.description === undefined) ? "" : item.description.split("'").join("''");
 
-          var achievementsQuery = function(callback)
-          {
-            client.query("INSERT INTO achievements VALUES ('" +
-            item.name + "', '" +
-            item.displayName + "', " +
-            (item.hidden == 1 ? true : false) + ", '" +
-            item.description + "', '" +
-            item.icon + "', '" +
-            item.icongray + "', " +
-            appId + ") " +
-            "ON CONFLICT (name) DO UPDATE SET displayName = excluded.displayName, hidden = excluded.hidden, description = excluded.description, icon = excluded.icon, icongray = excluded.icongray, appid = excluded.appid;", function(err, result)
+            var achievementsQuery = function(callback)
             {
-              if(err) {
-                console.log("achievement insert error " + err);
-              }
-              callback(null, "achievement insert done");
-            });
-          };
-          queries.push(achievementsQuery);
-        });
+              client.query("INSERT INTO achievements VALUES ('" +
+              item.name + "', '" +
+              item.displayName + "', " +
+              (item.hidden == 1 ? true : false) + ", '" +
+              item.description + "', '" +
+              item.icon + "', '" +
+              item.icongray + "', " +
+              appId + ") " +
+              "ON CONFLICT (name) DO UPDATE SET displayName = excluded.displayName, hidden = excluded.hidden, description = excluded.description, icon = excluded.icon, icongray = excluded.icongray, appid = excluded.appid;", function(err, result)
+              {
+                if(err) {
+                  console.log("achievement insert error " + err);
+                  callback(error, "error");
+                  return;
+                }
+                callback(null, "achievement insert done");
+                return;
+              });
+            };
+            queries.push(achievementsQuery);
+          });
+        }
 
         // Execute all queries
         async.series(queries, function(err, results)
@@ -143,24 +165,20 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
           }
           done();
           console.log("done.");
+          inCallback(null, "done");
+          return;
         });
 
       });
     }
     else {
       // Game has no achievements or stats
-      invalidGame();
+      console.log("invalid game detected");
+
+      inCallback(true, null);
     }
   });
-
 };
-
-
-function invalidGame()
-{
-  console.log("invalid game detected");
-  callback(null);
-}
 
 
 function getGlobalPercentage(globalAchievements, searchName) {

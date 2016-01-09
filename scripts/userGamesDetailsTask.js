@@ -48,7 +48,7 @@ exports.gameDetails = function(appid, steamid, mainCallback){
                 }
                 callback(null, "insert done");
               });
-            };
+            };  
             queries.push(funcAchievements);
           });
 

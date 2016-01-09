@@ -80,7 +80,7 @@ UserLoader.prototype.load = function(callback)
               userGame.save(function (err, userGame) {
                 if(err){console.log(err);}
 
-                // TODO: maybe clean up duplicate values here, some of them are already contained in the userGame.
+
                 callback(localAppId, userGame, userGameStats.achievements.length, dbGame.numberOfAchievements);
               });
             });
