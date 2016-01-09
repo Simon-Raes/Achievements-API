@@ -2,129 +2,125 @@ var express = require('express');
 var router = express.Router();
 var request = require('request');
 
-var User = require("../models/user").User;
-var DetailedUser = require("../models/detaileduser").DetailedUser;
+var userGameDetailsTask = require("../scripts/userGamesDetailsTask.js");
+var pg = require('pg');
+var async = require('async');
 
-var Game = require("../models/game").Game;
-
-var userGameTask = require("../scripts/userGameTask.js");
-
-exports.downloadUserDetails = function(req, res, inSteamId)
+// Downloads and stores info about the user and his list of games
+// User: steamid, name, avatar, profile url
+// Games: appid
+exports.downloadUserDetails = function(req, res, userId, callback)
 {
-  console.log("fuckaroro");
-  // TODO: use inSteamId once testing is done, using an account with a low amount of games and achievements for testing here
-  // var userId = "76561198075926354";
+  // TODO: use incoming userId once testing is done, using an account with a lower amount of games and achievements for testing here (kip):
+  userId = "76561197960378945";
 
-  // hardcoded kip id
-  //var userId = "76561197960378945";
-  var userId = inSteamId;
-
-  // TODO: API sometimes sends back an HTML error, handle that instead of crashing completely
+  // TODO: API sometimes sends back an HTML error, handle that instead of crashing
 
   // Download user info
   request('http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=EB5773FAAF039592D9383FA104EEA55D&steamids=' + userId, function (error, response, body)
   {
+    if(error)
+    {
+      console.log(error);
+    }
     if (!error && response.statusCode == 200)
     {
       var userJson = JSON.parse(body).response.players[0];
 
-      var user = new User({
-        steamid: userId,
-        name: userJson.personaname,
-        image: userJson.avatarfull,
-        url: userJson.profileurl,
-        numberOfAchievements: 0,
-        perfectGames: 0
+      var queries = [];
+
+      pg.connect(constants.CONNECTION_STRING, function(err, client, done)
+      {
+        if(err) {
+          console.log(err);
+        }
+        console.log("success!");
+        client.query("INSERT INTO users VALUES (" + userJson.steamid +", '"+userJson.personaname+"', '"+userJson.avatarfull+"', '"+userJson.profileurl+"') " +
+        "ON CONFLICT (steamid) DO UPDATE SET name = excluded.name, image = excluded.image, url = excluded.url;", function(err, result)
+        {
+          if(error)
+          {
+            console.log(error);
+          }
+          console.log("saved user");
+          done();
+        });
       });
 
       // Download list of the games owned by this user
-      request('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + userId, function (error, response, body)
+      request('http://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=EB5773FAAF039592D9383FA104EEA55D&steamid=' + userJson.steamid, function (error, response, body)
       {
+        if(error)
+        {
+          console.log("error downloading user's games: " + err);
+        }
         if (!error && response.statusCode == 200)
         {
-          console.log("downloaded user games!" + userId);
           var games = JSON.parse(body).response.games;
 
-
-          // Values to set for the User after all games have been checked.
-          var achievementCount = 0;
-          var perfectedGames = 0;
-          // Counter to know when all games have been checked.
-          var numberOfGames = games.length;
-          var counter = 0;
-
-          // Get the stats for every game
-          var gamesArray = [];
-
-          games.forEach(function(entry)
+          pg.connect(conString, function(err, client, done)
           {
-            Game.findOne({appid:Number(entry.appid)}, function (err, docs)
+            if(err) console.log(err);
+
+            // First clear the user's games
+            var funcClearGames = function(callback)
             {
-              if(err || (!docs.hasStats && docs.numberOfAchievements <= 0))
+              client.query("DELETE FROM ONLY usergames WHERE steamid = '" + userJson.steamid + "';", function(err, result)
               {
-                // TODO fix this, this is somehow never true, but there should definitely be some games in the DB that do not have achievements.
-                //counter++;
+                if(err) {
+                  console.log("delete error " + err);
+                }
+                callback(null, "clear done");
+              });
+            };
+            queries.push(funcClearGames);
 
-              }
-              else
+            // Then insert the new list of his games
+            if(games.length > 0)
+            {
+              games.forEach(function(entry)
               {
-
-                var UserGameTask = new userGameTask(res, req, user, entry.appid);
-                UserGameTask.load(function callback(appId, game, achieved, total)
+                var funcGameDetails = function(callback)
                 {
-                  achievementCount += achieved;
+                  userGameDetailsTask.gameDetails(entry.appid, userJson.steamid, function(error, result){
+                    console.log(result);
+                    callback(null, "test done");
+                  });
+                };
+                queries.push(funcGameDetails);
 
-                  if(game != null)
+                var funcGame = function(callback)
+                {
+                  client.query("INSERT INTO usergames VALUES (" + userJson.steamid + ", " + entry.appid + ");", function(err, result)
                   {
-                    gamesArray.push(game);
-                    console.log(game);
-                  }
+                    if(err) {
+                      callback(error, null);
+                      console.log("insert error: " + err);
+                      return;
+                    }
+                    console.log("saved " + entry.appid);
+                    callback(null, "insert done");
+                  });
+                };
+                queries.push(funcGame);
 
-                  if(total != 0 && achieved >= total)
-                  {
-                    perfectedGames ++;
-                  }
+              });
+            }
 
-                  counter ++;
-                  if(counter == numberOfGames)
-                  {
-                    user.numberOfAchievements = achievementCount;
-                    user.perfectGames = perfectedGames;
-
-                    // Delete the user's old data and save the new one.
-                    User.find({steamid:userId}).remove( function(){
-
-                      user.save(function(err){
-                        if(err){console.log(err);}
-                        console.log("saved user!");
-                      });
-                    });
-
-                    // TODO: the same for detaileduser
-
-                    DetailedUser.find({steamid:userId}).remove( function(){
-                      var composedUser = new DetailedUser({
-                        steamid: user.steamid,
-                        name: user.name,
-                        image: user.image,
-                        url: user.url,
-                        numberOfAchievements: user.numberOfAchievements,
-                        perfectGames: user.perfectGames,
-                        games: gamesArray
-                      });
-                      composedUser.save(function(err){
-                        if(err){console.log(err);}
-                        console.log("saved detaied user!");
-                      });
-                    });
-
-                  }
-                });
+            // Execute all queries
+            async.parallel(queries, function(err, results)
+            {
+              if(err)
+              {
+                console.log("err " + err);
               }
+              done();
+              callback(null, userJson);
+              console.log("done.");
             });
           });
         }
       });
     }
   });
-}
+};

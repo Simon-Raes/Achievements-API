@@ -1,28 +1,19 @@
 var request = require('request');
-
-var Game = require("../models/game").Game;
-var DetailedGame = require("../models/detailedgame").DetailedGame;
+var async = require('async');
+var pg = require('pg');
 
 /*
 * Downloads and stores the stats for a single game. Pass in the game's appid to specificy which one.
 */
 
-var gameSchemeJson;
-var gameGlobalStatsJson;
-
-var schemeReady = false, globalStatsReady = false;
-var hasStats = false;
-var numberOfAchievements = 0;
-
 var appId;
-
 var response;
-
 var callback;
 
 
 exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
 
+  console.log(inAppId);
   response = inRes;
   appId = inAppId;
   callback = inCallback;
@@ -30,128 +21,169 @@ exports.downloadGameDetails = function(req, inRes, inAppId, inCallback) {
   /*
   * Downloads the game's scheme: detailed info on achievements and stats.
   */
+  var one = function(callback){
+    request('http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=EB5773FAAF039592D9383FA104EEA55D&appid=' + appId, function (error, response, body) {
 
-  request('http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key=EB5773FAAF039592D9383FA104EEA55D&appid=' + appId, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
-
-        gameSchemeJson = JSON.parse(body);
-        schemeReady = true;
-
-        // Check if the game has achievements or stats.
-        if(gameSchemeJson.game.gameName != undefined)
-        {
-          numberOfAchievements = gameSchemeJson.game.availableGameStats.achievements.length;
-          hasStats = ((gameSchemeJson.game.availableGameStats.stats != undefined) && (gameSchemeJson.game.availableGameStats.stats.length > 0));
-        }
-
-        combineData();
-     }
-  });
+      var r = JSON.parse(body);
+      console.log("fml");
+      console.log(r);
+      if (!error && response.statusCode == 200 && r !== null && r.game !== null)
+      {
+        callback(null, r);
+      }
+      else
+      {
+        callback(error, null);
+      }
+    });
+  };
 
   /*
   * Downloads the global achievement percetages.
   */
-  request('http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=' + appId, function (error, response, body) {
-      if (!error && response.statusCode == 200) {
+  var two = function(callback){
+    request('http://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v0002/?gameid=' + appId, function (error, response, body) {
 
-        gameGlobalStatsJson = JSON.parse(body);
-        globalStatsReady = true;
+      if (!error && response.statusCode == 200)
+      {
+        callback(null, JSON.parse(body));
+      }
+      else
+      {
+        callback(error, null);
+      }
+    });
+  };
 
-        combineData();
-     }
-  });
+  async.parallel([one, two], function(err, results){
 
-}
-
-function combineData()
-{
-  if(schemeReady && globalStatsReady)
-  {
-    if(numberOfAchievements > 0 || hasStats)
+    if(err)
     {
-      gameSchemeJson.game.availableGameStats.achievements.forEach(function(item){
-        // FIXME can this not just return an item instead of an array with 1 item?
+      console.log("err " + err);
+    }
+    // combine data
+    var gameSchemeJson = results[0];
 
-        console.log(item.name);
+    if(gameSchemeJson === undefined || gameSchemeJson === null)
+    {
+      inCallback("error", "error");
+      return;
+    }
 
-        var globalPercentage = getGlobalPercentage(item.name.toLowerCase())[0].percent;
+    var game = gameSchemeJson.game;
+    var gameGlobalStatsJson = results[1];
+    var globalAchievements;
+    if(gameGlobalStatsJson !== null)
+    {
+      globalAchievements = gameGlobalStatsJson.achievementpercentages.achievements;
+    }
 
-        item.percent = globalPercentage;
+    // Check if the game has achievements or stats.
+    var numberOfAchievements = 0;
+    var hasStats = false;
+
+    if(game.gameName !== undefined && game.gameName !== null)
+    {
+      numberOfAchievements = (game.availableGameStats.achievements === null || game.availableGameStats.achievements === undefined) ? 0 : game.availableGameStats.achievements.length;
+      hasStats = ((game.availableGameStats.stats !== undefined && game.availableGameStats.stats !== null) && (game.availableGameStats.stats.length > 0));
+    }
+
+    if(globalAchievements !== undefined && globalAchievements !== null && (numberOfAchievements > 0 || hasStats))
+    {
+
+      pg.connect(constants.CONNECTION_STRING, function(err, client, done)
+      {
+        var queries = [];
+
+        if(hasStats)
+        {
+          game.availableGameStats.stats.forEach(function(item){
+
+            item.displayName = item.displayName.split("'").join("''");
+            var statsQuery = function(callback)
+            {
+              client.query("INSERT INTO stats VALUES ('" + item.name + "', '" + item.displayName + "', '" + appId + "') " +
+              "ON CONFLICT (name) DO UPDATE SET displayName = excluded.displayName, appid = excluded.appid;", function(err, result)
+              {
+                if(err) {
+                  console.log("stats insert error " + err);
+                  callback(err, "error");
+                  return;
+                }
+                callback(null, "stats insert done");
+                return;
+              });
+            };
+            queries.push(statsQuery);
+          });
+        }
+
+        if(numberOfAchievements > 0)
+        {
+          // Need to loop over all achievements to add their global percentage
+          game.availableGameStats.achievements.forEach(function(item){
+
+            console.log(item.name);
+
+            var globalPercentage = getGlobalPercentage(globalAchievements, item.name.toLowerCase()).percent;
+            item.percent = globalPercentage;
+            item.displayName = (item.displayName === null || item.displayName === undefined) ? "" : item.displayName.split("'").join("''");
+            item.description = (item.description === null || item.description === undefined) ? "" : item.description.split("'").join("''");
+
+            var achievementsQuery = function(callback)
+            {
+              client.query("INSERT INTO achievements VALUES ('" +
+              item.name + "', '" +
+              item.displayName + "', " +
+              (item.hidden == 1 ? true : false) + ", '" +
+              item.description + "', '" +
+              item.icon + "', '" +
+              item.icongray + "', " +
+              appId + ") " +
+              "ON CONFLICT (name) DO UPDATE SET displayName = excluded.displayName, hidden = excluded.hidden, description = excluded.description, icon = excluded.icon, icongray = excluded.icongray, appid = excluded.appid;", function(err, result)
+              {
+                if(err) {
+                  console.log("achievement insert error " + err);
+                  callback(error, "error");
+                  return;
+                }
+                callback(null, "achievement insert done");
+                return;
+              });
+            };
+            queries.push(achievementsQuery);
+          });
+        }
+
+        // Execute all queries
+        async.series(queries, function(err, results)
+        {
+          if(err)
+          {
+            console.log("err " + err);
+          }
+          done();
+          console.log("done.");
+          inCallback(null, "done");
+          return;
+        });
+
       });
-
-      saveDetailedGame();
     }
     else {
       // Game has no achievements or stats
-      invalidGame();
+      console.log("invalid game detected");
+
+      inCallback(true, null);
     }
-  }
-}
+  });
+};
 
-/*
-* Saves the game details to the detailedGames collection.
-*/
-function saveDetailedGame() {
-  if(numberOfAchievements > 0 || hasStats) {
 
-    Game.findOne({appid:Number(appId)}, function (err, docs){
-
-      if(err){console.log(err);}
-
-      // Set the game name, since this field is often empty in the Steam scheme API.
-      gameSchemeJson.game.name = docs.name;
-      // Add the appId, could be useful.
-      gameSchemeJson.game.appid = Number(appId);
-
-      DetailedGame.find({appid:Number(appId)}).remove( function(){
-
-        var detgame = new DetailedGame(gameSchemeJson.game);
-
-        callback(detgame);
-
-        detgame.save(function(err){
-          if(err){console.log(err);}
-          updateGame();
-        });
-      });
-    });
-  }
-  else
-  {
-    // Game has no achievements or stats
-    invalidGame();
-  }
-}
-
-/*
-* Updates the game in the simple games table. Adds the hasStats and numberOfAchievements fields.
-*/
-function updateGame()
-{
-  Game.update(
-    {appid:Number(appId)},
-    {$set:
-      {"hasStats":hasStats,
-      "numberOfAchievements":Number(numberOfAchievements)}
-    },
-    {},
-    function(e, docs)
-    {
-      console.log('All done.');
-    }
-  );
-}
-
-function invalidGame()
-{
-  console.log("invalid game detected");
-  callback(null);
-}
-
-function getGlobalPercentage(searchName) {
-  return gameGlobalStatsJson.achievementpercentages.achievements.filter(
+function getGlobalPercentage(globalAchievements, searchName) {
+  return globalAchievements.filter(
     function(gameGlobalStatsJson) {
       return gameGlobalStatsJson.name.toLowerCase() == searchName;
     }
-  );
+  )[0];
 }

@@ -5,20 +5,18 @@ var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 
-var mongo = require('mongodb');
-var mongoose = require('mongoose');
+// var mongo = require('mongodb');
+// var mongoose = require('mongoose');
 
-if(process.env.DB_URL != undefined)
-{
-    mongoose.connect(process.env.DB_URL);
-}
-else
-{
-    // Fallback when running project locally
-    mongoose.connect('mongodb://localhost/achievementsapi');
-}
-
-
+// if(process.env.DB_URL !== undefined && process.env.DB_URL !== null)
+// {
+//     mongoose.connect(process.env.DB_URL);
+// }
+// else
+// {
+//     // Fallback when running project locally
+//     mongoose.connect('mongodb://localhost/achievementsapi');
+// }
 
 var routes = require('./controllers/index');
 var games = require('./controllers/games');
@@ -33,11 +31,11 @@ var tasks = require('./controllers/tasks');
 console.log('lets go');
 
 
-var db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', function (callback) {
-  console.log('db setup done');
-});
+// var db = mongoose.connection;
+// db.on('error', console.error.bind(console, 'connection error:'));
+// db.once('open', function (callback) {
+//   console.log('db setup done');
+// });
 
 
 
